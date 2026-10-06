@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Repeated callback render regression</title>
+</head>
+<body>
+  <pre id="result">Running...</pre>
+  <script type="module">
+    const result = document.querySelector('#result');
+    try {
+      const { render, html } = await import(
+        location.search === '?prod' ? '../dist/prod/dom.js' : '../dist/dev/dom.js'
+      );
+      const assert = (condition, message) => {
+        if (!condition) throw new Error(message);
+      };
+
+      // #given — a callback with the same template across renders
+      const text = document.createElement('div');
+      document.body.append(text);
+      const message = value => html`<p>${value}</p>`;
+      render(text, () => message('first'));
+      const paragraph = text.firstChild;
+
+      // #when — more than two consecutive updates
+      render(text, () => message('second'));
+      render(text, () => message('third'));
+      render(text, () => message('fourth'));
+
+      // #then
+      assert(text.textContent === 'fourth', 'Repeated text renders must show the latest value');
+      assert(text.firstChild === paragraph, 'Repeated text renders must keep the DOM node');
+
+      // #given — an empty list followed by restored entries
+      const list = document.createElement('div');
+      document.body.append(list);
+      const entries = values => html`<ul>${values.map(value => html`<li>${value}</li>`)}</ul>`;
+      render(list, () => entries([]));
+      render(list, () => entries(['saved']));
+      const ul = list.firstChild;
+
+      // #when — a new entry arrives after the second render
+      render(list, () => entries(['pasted', 'saved']));
+
+      // #then
+      assert(
+        JSON.stringify(Array.from(list.querySelectorAll('li'), li => li.textContent)) === '["pasted","saved"]',
+        'The third list render must show both entries in order'
+      );
+      assert(list.firstChild === ul, 'Updating the list must keep its root node');
+      result.textContent = 'PASS: repeated text and list renders';
+    }
+    catch (error) {
+      result.textContent = `FAIL: ${error.message}`;
+      throw error;
+    }
+  </script>
+</body>
+</html>

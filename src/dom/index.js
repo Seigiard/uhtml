@@ -104,7 +104,10 @@ export const render = (where, what) => {
       const d = hole.valueOf(false);
       where.replaceChildren(d);
     }
-    else known[1].update(hole);
+    else {
+      known[1].update(hole);
+      hole = known[1];
+    }
     rendered.set(where, [scope, hole]);
   }
   else {
